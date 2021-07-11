@@ -1,0 +1,3 @@
+pysdf
+pymeshlab==0.2
+pyrender==0.1.30

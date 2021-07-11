@@ -1,0 +1,36 @@
+name: resSDF
+channels:
+  - pytorch
+  - conda-forge
+  - nvidia
+  - rusty1s
+  - defaults
+dependencies:
+  - blas=1.0
+  - cudatoolkit=11.1
+  - intel-openmp=2020.2
+  - numpy
+  - pillow=8.2.0
+  - pip=21.0.1
+  - python=3.8.8
+  - pytorch=1.8.1
+  - torchvision
+  - setuptools
+  - scikit-image
+  - scikit-learn
+  - scipy
+  - tensorboard=2.5.0
+  - tensorboard-data-server=0.6.0
+  - tensorboard-plugin-wit=1.8.0
+  - trimesh
+  - imageio
+  - matplotlib
+  - pyopengl
+  - pytorch-cluster
+  - pytorch-scatter
+  - pykdtree
+- pip:
+  - pysdf
+  - pymeshlab
+  - pyrender
+prefix: /home/ywang/anaconda3/envs/resSDF
