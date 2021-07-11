@@ -42,7 +42,6 @@ class Sdf(Loss):
         base_inter = self._get_loss_weight('base_inter', progress)
         base_grad = self._get_loss_weight('base_grad', progress)
         base_normal = self._get_loss_weight('base_normal', progress)
-        base_smooth = self._get_loss_weight('base_smooth', progress)
 
         self.runner.logger.log_scalar("loss_weight",
             dict([("weight_sdf", sdf),
@@ -52,8 +51,7 @@ class Sdf(Loss):
             ("weight_base_sdf", base_sdf),
             ("weight_base_inter", base_inter),
             ("weight_base_grad", base_grad),
-            ("weight_base_normal", base_normal),
-            ("weight_base_smooth", base_smooth)
+            ("weight_base_normal", base_normal)
             ]))
 
         approx_grad = getattr(self.runner.network, 'approximate_gradient', False)
@@ -83,7 +81,7 @@ class Sdf(Loss):
             # eikonal constraint
             if grad > 0:
                 grad_constraint = torch.abs(gradientV.norm(dim=-1) - 1) * grad
-                result['base_grad_loss'] = grad_constraint
+                result['grad_loss'] = grad_constraint
 
             # normal direction for the on-surface points
             gradientV = gradientV.view_as(gt_normals)
