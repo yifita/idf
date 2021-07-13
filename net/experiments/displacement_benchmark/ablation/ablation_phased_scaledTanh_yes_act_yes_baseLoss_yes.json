@@ -1,0 +1,82 @@
+{
+    "name"  : {"concat":["Displace_Siren_", "replace:name", "_phased_scaledTanh_yes_act_yes_baseLoss_yes"]},
+    "logger" : [
+        {
+            "type" : "Tensorboard",
+            "exclude" : ["mesh.*", "pointcloud.*"]
+        },
+        {
+            "type" : "File",
+            "use_step" : true,
+            "include" : ["mesh_.*","code_base", "pointcloud.*", "levelset_.*", "contour_.*", "normal_.*"]
+        }
+    ],
+    "tasks" : [
+        {
+            "type":"Train", "name":"Train","epochs":120, "learning_rate":1e-4,
+            "batch_size": 4,
+            "phase": {
+                "residual": [[0.2, 0.0],[0.5,1.0],[1,0.1]],
+                "base": [[0.2, 1.0],[0.5,0.0],[1, 0.0]]},
+            "overwrite": true,
+            "update_checkpoint": 20, "resume_from": "Train_latest.ckpt"
+        }
+    ],
+    "network" : {
+        "type" : "Displacement",
+        "use_tanh": true,
+        "freeze_base" :  false,
+        "offset_base" : 0.05,
+        "detach_gradient" : false,
+        "offset_max" : 0.05,
+        "close_surface_activation": true,
+        "activation_threshold": 0.05,
+        "residual" :
+            {
+                "type" : "Siren",
+                "omega": 60,
+                "outermost_linear" : true
+            },
+        "base":
+            {
+                "type" : "Siren",
+                "omega" : 15,
+                "state_dict_path": "runs/INIT_siren_omega15_nlayer3_hidden256/Train/Train_latest.ckpt:network"
+            }
+    },
+    "loss" : {"type":"Sdf",
+              "base_sdf": [[0.2, 200],[0.5,0]], "base_normal": [[0.2, 40],[0.5, 0]],
+              "base_grad": [[0.2, 5],[0.5, 0]], "base_inter": [[0.2, 50],[0.5, 0]],
+              "sdf" : [[0.2,0],[0.5, 200],[1.0,200]],
+              "normal": [[0.2, 0.0],[0.5, 40],[1.0, 40]],
+              "grad": [[0.2,0.0],[0.5,5],[1.0,5]],
+              "inter": [[0.2,0.0],[0.5,50],[1.0,50]]
+            },
+   "data" :  {
+    "type" : "Pointcloud",
+    "path" : {"concat":["data/benchmark_shapes/","replace:name","_normalized.ply"]},
+    "num_points" : 4000000,
+    "batch_size" : 2048,
+    "pointcloud_size" : 0,
+    "keep_aspect_ratio" : true,
+    "bbox_size": 2.0,
+    "augment_data": false,
+    "sphere_normalization":true,
+    "flip_normal" : false,
+    "padding" : 0,
+    "do_normalize": true
+}   ,
+    "evaluator" : [
+        {"type":"Residual", "axis":0, "frequency": 20,"resolution":500, "name":"levelset_X", "attributes":["sdf","residual","base"]},
+        {"type":"Residual", "axis":1, "frequency": 20,"resolution":500, "name":"levelset_Y", "attributes":["sdf","residual","base"]},
+        {"type":"Residual", "axis":2, "frequency": 20,"resolution":500, "name":"levelset_Z", "attributes":["sdf","residual","base"]},
+        {"type":"Contour", "axis":0, "frequency": 20,"resolution":500, "name":"levelset_X", "attributes":["sdf","residual","base"]},
+        {"type":"Contour", "axis":1, "frequency": 20,"resolution":500, "name":"levelset_Y", "attributes":["sdf","residual","base"]},
+        {"type":"Contour", "axis":2, "frequency": 20,"resolution":500, "name":"levelset_Z", "attributes":["sdf","residual","base"]},
+        {"type":"Mesh", "name":"mesh_HighRes", "frequency":30, "compute_chamfer":true, "resolution":512},
+        {"type":"Mesh", "name":"mesh_base_HighRes", "frequency":30, "resolution":512, "attribute":"base"},
+        {"type":"Scalar","name":"scalar", "attributes" : ["base_sdf_loss","base_grad_loss","base_inter_loss","base_normal_loss","sdf_loss","grad_loss","inter_loss","normal_loss"]},
+        {"type":"Mesh",   "axis":2,   "name":"mesh_HighRes_final", "frequency":120, "compute_chamfer":true, "resolution":512,"batch_size":50000}
+    ]
+}
+
