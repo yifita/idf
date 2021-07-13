@@ -1,0 +1,248 @@
+{
+    "benchmark": false,
+    "data": {
+        "augment_data": false,
+        "batch_size": 2048,
+        "bbox_size": 1.0,
+        "keep_aspect_ratio": true,
+        "num_points": 1000000,
+        "path": "data/dt_shapes/shorts_1.ply",
+        "pointcloud_path": "data/dt_shapes/shorts_1_lowres.ply",
+        "pointcloud_size": 3000,
+        "sample_close_to_surface": true,
+        "sample_sdf": false,
+        "type": "CloudSampler"
+    },
+    "data_path": {
+        "insert": "../datapath.json"
+    },
+    "evaluator": [
+        {
+            "attributes": [
+                "sdf",
+                "residual",
+                "base",
+                "gt",
+                "activation"
+            ],
+            "axis": 0,
+            "bbox_size": 1.0,
+            "frequency": 10,
+            "name": "levelset_X",
+            "type": "Residual"
+        },
+        {
+            "attributes": [
+                "sdf",
+                "residual",
+                "base",
+                "gt",
+                "activation"
+            ],
+            "axis": 1,
+            "bbox_size": 1.0,
+            "frequency": 10,
+            "name": "levelset_Y",
+            "type": "Residual"
+        },
+        {
+            "attributes": [
+                "sdf",
+                "residual",
+                "base",
+                "gt",
+                "activation"
+            ],
+            "axis": 2,
+            "bbox_size": 1.0,
+            "frequency": 10,
+            "name": "levelset_Z",
+            "type": "Residual"
+        },
+        {
+            "bbox_size": 1.0,
+            "frequency": 30,
+            "name": "mesh",
+            "resolution": 512,
+            "type": "Mesh"
+        },
+        {
+            "attribute": "base",
+            "bbox_size": 1.0,
+            "frequency": 30,
+            "name": "mesh_base",
+            "resolution": 512,
+            "type": "Mesh"
+        },
+        {
+            "attributes": [
+                "sdf_loss",
+                "eikonal_loss",
+                "inter_loss",
+                "normal_loss",
+                "base_sdf_loss",
+                "base_normal_loss",
+                "base_eikonal_loss",
+                "base_grad_loss",
+                "base_inter_loss",
+                "base_smooth_loss"
+            ],
+            "name": "scalar",
+            "type": "Scalar"
+        }
+    ],
+    "logger": [
+        {
+            "exclude": [
+                "mesh.*",
+                "pointcloud.*"
+            ],
+            "tasks": [
+                "Train.*"
+            ],
+            "type": "Tensorboard"
+        },
+        {
+            "include": [
+                "mesh.*",
+                "code_base",
+                "pointcloud.*",
+                "levelset_.*",
+                "contour_.*",
+                "normal_.*"
+            ],
+            "type": "File",
+            "use_step": true
+        }
+    ],
+    "loss": {
+        "grad": 0.1,
+        "inter": 5,
+        "normal": 100,
+        "sdf": 500,
+        "type": "Sdf"
+    },
+    "name": "shorts_residual_filmsiren",
+    "network": {
+        "activation_threshold": 0.2,
+        "base": {
+            "hidden_size": 96,
+            "n_layers": 2,
+            "omega": 5.0,
+            "state_dict_path": "runs/shorts_baseshorts_1_lowres/Train_1/Train_latest.ckpt:network",
+            "type": "Siren",
+            "ignore_missing_checkpoint": false
+        },
+        "close_surface_activation": true,
+        "feature": {
+            "c_dim": 16,
+            "hidden_dim": 16,
+            "input_normals": true,
+            "padding": 0.0,
+            "plane_type": "grid",
+            "reso_grid": 32,
+            "sample_mode": "bilinear",
+            "state_dict_path": "runs/shorts_residual_filmsiren/Train/Train_latest.ckpt:network:feature.",
+            "subpixel_upsampling": 1,
+            "type": "ConvolutionalFeature",
+            "unet3d": true,
+            "unet3d_kwargs": {
+                "f_maps": 16,
+                "in_channels": 16,
+                "num_levels": 3,
+                "out_channels": 16
+            }
+        },
+        "freeze_base": true,
+        "offset_base": 0.1,
+        "offset_max": 0.1,
+        "pointcloud_sigma": 0.005,
+        "residual": {
+            "c_dim": 19,
+            "dim": 1,
+            "hidden_size": 96,
+            "mapping_hidden_size": 96,
+            "n_layers": 6,
+            "share_frequencies": false,
+            "state_dict_path": "runs/shorts_residual_filmsiren/Train/Train_latest.ckpt:network:residual.",
+            "type": "FilmSiren"
+        },
+        "scale_base_value": true,
+        "type": "FeatureDisplacement",
+        "base_normal_in_c": true
+    },
+    "tasks": [
+        {
+            "batch_size": 2,
+            "epochs": 100,
+            "learning_rate": 0.0001,
+            "name": "Train",
+            "overwrite": true,
+            "phase": {
+                "base": [
+                    [
+                        1.0,
+                        0.0
+                    ]
+                ],
+                "feature": [
+                    [
+                        1.0,
+                        1.0
+                    ]
+                ],
+                "residual": [
+                    [
+                        1.0,
+                        1.0
+                    ]
+                ]
+            },
+            "type": "Train",
+            "update_checkpoint": 20
+        },
+        {
+            "data": {
+                "augment_data": false,
+                "batch_size": 1000000,
+                "bbox_size": 1.0,
+                "keep_aspect_ratio": true,
+                "num_points": 1000000,
+                "path": "data/dt_shapes/shorts_1_lowres.ply",
+                "pointcloud_size": 3000,
+                "sample_sdf": false,
+                "type": "CloudSampler"
+            },
+            "name": "Eval_shorts_source",
+            "overwrite": true,
+            "type": "Eval"
+        },
+        {
+            "name": "Eval_shorts_2",
+            "network.base": {
+                "hidden_size": 96,
+                "n_layers": 2,
+                "omega": 5.0,
+                "state_dict_path": "runs/shorts_baseshorts_2_lowres/Train_1/Train_latest.ckpt:network",
+                "type": "Siren"
+            },
+            "type": "SetNetwork"
+        },
+        {
+            "data": {
+                "augment_data": false,
+                "batch_size": 1000000,
+                "bbox_size": 1.0,
+                "keep_aspect_ratio": true,
+                "num_points": 1000000,
+                "path": "data/dt_shapes/shorts_2_lowres.ply",
+                "pointcloud_size": 3000,
+                "sample_sdf": false,
+                "type": "CloudSampler"
+            },
+            "name": "Eval_shorts_target",
+            "overwrite": true,
+            "type": "Eval"
+        }
+    ]
+}
