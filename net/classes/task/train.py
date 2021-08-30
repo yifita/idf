@@ -1,4 +1,5 @@
 import json
+from ssl import RAND_pseudo_bytes
 from typing import Dict, Tuple, List
 from runner import Runner
 from task.task import Task
@@ -27,7 +28,6 @@ class Train(Task):
         self.optimizer : str = "Adam"
         self.phase : Dict[str, List[Tuple[float, float]]] = {}  # {network: [[phase, lr_factor]...]]
         self.batch_size : int = 1
-        self.benchmark : bool = True
         self.force_run : bool = False
         self.old_train : bool = False
         super().__init__(config)
@@ -53,6 +53,7 @@ class Train(Task):
                     pp0 = progress-self._phase_progress[name][_phase-1]
                     v1v0 = (self._phase_lr_factor[name][_phase] - self._phase_lr_factor[name][_phase-1])
                     return v0 + (1-np.cos(np.pi*pp0/p1p0)) * v1v0 / 2
+                    # return v0 + pp0/p1p0*v1v0
 
                 return self._phase_lr_factor[name][_phase]
             lr_lambdas.append(func)
@@ -67,6 +68,14 @@ class Train(Task):
             elif lr > 0:
                 getattr(self.runner.network, name).requires_grad_(True)
                 self.runner.py_logger.info(f'Unfroze parameters of {name}.')
+
+    def perf_step(self, name = None):
+        return
+        c_time = time.perf_counter()
+        delta = c_time-self.last_time
+        self.last_time = c_time
+        if(name is not None):
+            self.runner.py_logger.info(f'Phase {name} took {delta}s')
 
 
     def __call__(self):
@@ -130,19 +139,25 @@ class Train(Task):
             scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, self._get_lr_lambdas(), last_epoch=ep)
 
         self.runner.logger.set_step(it)
+        avg_time = 0.0
+        min_time = float('inf')
+        max_time = 0.0
+        train_start_time = time.time()
         while True:
+            start_time = time.time()
+
             ep += 1
             if ep > self.epochs:
                 break
-
-            if(ep > 0 and self.update_checkpoint > 0 and ep % self.update_checkpoint == 0):
-                self.runner.py_logger.info(f"Creating checkpoint for {ep}/{self.epochs}")
-                self.ckpt_io.save(f'Train_{ep}.ckpt', epoch=ep, it=it)
-                latest_path = self.folder + "/Train_latest.ckpt"
-                if(os.path.isfile(latest_path) or os.path.islink(latest_path)):
-                    self.runner.py_logger.info(f"Deleteing checkpoint {latest_path}")
-                    os.remove(latest_path)
-                os.symlink(f'./Train_{ep}.ckpt',latest_path)
+            if not self.runner.perf_test:
+                if(ep > 0 and self.update_checkpoint > 0 and ep % self.update_checkpoint == 0):
+                    self.runner.py_logger.info(f"Creating checkpoint for {ep}/{self.epochs}")
+                    self.ckpt_io.save(f'Train_{ep}.ckpt', epoch=ep, it=it)
+                    latest_path = self.folder + "/Train_latest.ckpt"
+                    if(os.path.isfile(latest_path) or os.path.islink(latest_path)):
+                        self.runner.py_logger.info(f"Deleteing checkpoint {latest_path}")
+                        os.remove(latest_path)
+                    os.symlink(f'./Train_{ep}.ckpt',latest_path)
             if not self.old_train:
                 self._train_phase(scheduler)
             lossEpoch = 0
@@ -150,12 +165,14 @@ class Train(Task):
             loss_value = 0
 
             progress = ep / self.epochs
-            dataset.dataset.epoch_hook(progress)
+            if not self.runner.perf_test:
+                dataset.dataset.epoch_hook(progress)
 
             for model_input in dataset :
-
                 it += 1
-                self.runner.logger.increment()
+                if not self.runner.perf_test:
+                    self.runner.logger.increment()
+
                 for k,v in model_input.items():
                     if isinstance(v,torch.Tensor):
                         model_input[k] = v.cuda()
@@ -171,34 +188,51 @@ class Train(Task):
                 model_output = self.runner.network(model_input)
                 loss = self.loss(model_output, model_input)
 
-                self.runner.evaluator.train_hook(model_output, loss)
+                if not self.runner.perf_test:
+                    self.runner.evaluator.train_hook(model_output, loss)
 
                 loss_value = sum([v.mean() for v in loss.values()])
                 optimizer.zero_grad()
                 loss_value.backward()
 
-                if(self.clip is not None and self.clip > 0):
+                if( not self.runner.perf_test and self.clip is not None and self.clip > 0):
                     torch.nn.utils.clip_grad_norm_(self.runner.network.parameters(), self.clip)
 
                 optimizer.step()
 
                 loss_value = loss_value.detach().cpu().item()
-                self.runner.logger.log_scalar("loss", loss_value)
+                if not self.runner.perf_test:
+                    self.runner.logger.log_scalar("loss", loss_value)
+
                 lossEpoch += loss_value
                 stepsInEpoch += 1
                 del model_output
                 del loss
                 del loss_value
 
-                if not self.benchmark and it % 1000 == 0:
+                # I need to save more often, maybe you can use "benchmark" flag
+                if not self.runner.perf_test and it % 1000 == 0:
                    self.ckpt_io.save(f'Train_latest.ckpt', epoch=ep, it=it)
 
             if not self.old_train:
                 scheduler.step()
-                self.runner.logger.log_scalar("lr", dict(zip(self._param_groups, scheduler.get_last_lr())))
+                if not self.runner.perf_test:
+                    self.runner.logger.log_scalar("lr", dict(zip(self._param_groups, scheduler.get_last_lr())))
 
-            self.runner.py_logger.info(f"Epoch {ep} average loss {lossEpoch/stepsInEpoch}")
-            self.runner.evaluator.epoch_hook(ep, slice_dict(model_input, [0]))
-            self.runner.py_logger.info(f"Finished training for epoch {ep}/{self.epochs} iter {it}/{total_it}")
 
-        self.ckpt_io.save(f'Train_latest.ckpt', epoch=ep, it=it)
+            cur_time = time.time()-start_time
+            avg_time += cur_time/self.epochs
+            min_time = min(cur_time,min_time)
+            max_time = max(cur_time,max_time)
+
+            if not self.runner.perf_test:
+                self.runner.py_logger.info(f"Epoch {ep} average loss {lossEpoch/stepsInEpoch}")
+                self.runner.evaluator.epoch_hook(ep, slice_dict(model_input, [0]))
+                self.runner.py_logger.info(f"Finished training for epoch {ep}/{self.epochs} iter {it}/{total_it}")
+                self.runner.py_logger.info(f"Running for {time.time()-train_start_time}s epoch times : avg:{(avg_time*self.epochs)/(ep+1)} min:{min_time} max:{max_time}")
+
+        if(self.runner.perf_test):
+                print(f"Training took {time.time()-train_start_time}s")
+                print(f"Epoch times avg:{avg_time} min:{min_time} max:{max_time}")
+        if not self.runner.perf_test:
+            self.ckpt_io.save(f'Train_latest.ckpt', epoch=ep, it=it)

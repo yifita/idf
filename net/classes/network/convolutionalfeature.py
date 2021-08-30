@@ -7,14 +7,15 @@ from .custom import grid_sample_2d, grid_sample_3d
 from torch import nn
 from torch_scatter import scatter_mean, scatter_max
 from network.network import Network
-from .ocn.common import coordinate2index, normalize_coordinate, normalize_3d_coordinate
-from .ocn.layers import ResnetBlockFC
-from .ocn.unet import UNet
-from .ocn.unet3d import UNet3D
+from network.ocn.common import coordinate2index, normalize_coordinate, normalize_3d_coordinate
+from network.ocn.layers import ResnetBlockFC
+from network.ocn.unet import UNet
+from network.ocn.unet3d import UNet3D
 import numpy as np
 
-def get_knn(vs: torch.Tensor,  k: int, batch_idx: torch.Tensor) -> torch.Tensor:
-    mat_square = torch.matmul(vs, vs.transpose(2,1))
+
+def get_knn(vs: torch.Tensor, k: int, batch_idx: torch.Tensor) -> torch.Tensor:
+    mat_square = torch.matmul(vs, vs.transpose(2, 1))
     diag = torch.diagonal(mat_square, dim1=1, dim2=2)
     diag = diag.unsqueeze(2).expand(mat_square.shape)
     dist_mat = (diag + diag.transpose(2, 1) - 2 * mat_square)
@@ -31,7 +32,8 @@ def extract_angles(vs: torch.Tensor, distance_k: torch.Tensor, vs_k: torch.Tenso
     ma = torch.abs(proj).sum(2) == 0
     num_points_to_replace = ma.sum().item()
     if num_points_to_replace:
-        proj[ma] = torch.rand(num_points_to_replace, vs.shape[1], device=ma.device)
+        proj[ma] = torch.rand(num_points_to_replace,
+                              vs.shape[1], device=ma.device)
     proj = proj / torch.norm(proj, p=2, dim=2)[:, :, None]
     angles = torch.acos(cos_angles)
     return angles, proj
@@ -40,7 +42,8 @@ def extract_angles(vs: torch.Tensor, distance_k: torch.Tensor, vs_k: torch.Tenso
 def min_angles(dirs: torch.Tensor, up: torch.Tensor) -> torch.Tensor:
     ref = dirs[:, 0]
     all_cos = torch.einsum('nd,nkd->nk', ref, dirs)
-    all_sin = torch.cross(ref.unsqueeze(1).expand(-1, dirs.shape[1], -1), dirs, dim=2)
+    all_sin = torch.cross(ref.unsqueeze(
+        1).expand(-1, dirs.shape[1], -1), dirs, dim=2)
     all_sin = torch.einsum('nd,nkd->nk', up, all_sin)
     all_angles = torch.atan2(all_sin, all_cos)
     all_angles[:, 0] = 0
@@ -53,15 +56,17 @@ def min_angles(dirs: torch.Tensor, up: torch.Tensor) -> torch.Tensor:
     all_angles = torch.gather(all_angles, 1, inds)
     return all_angles
 
+
 def extract_rotation_invariant_features(k: int) -> Tuple[Callable[[Union[torch.Tensor, np.array]], torch.Tensor], int]:
 
-    batch_idx  = None
+    batch_idx = None
     num_features = k * 3 + 1
 
     def get_input(xyz: torch.Tensor) -> Union[Tuple[torch.Tensor, ...], List[torch.Tensor]]:
         nonlocal batch_idx
         if batch_idx is None or len(batch_idx) != xyz.shape[0] * xyz.shape[1]:
-            batch_idx, _ = torch.meshgrid([torch.arange(xyz.shape[0]), torch.arange(xyz.shape[1])])
+            batch_idx, _ = torch.meshgrid(
+                [torch.arange(xyz.shape[0]), torch.arange(xyz.shape[1])])
             batch_idx = batch_idx.flatten().to(xyz.device)
         return xyz.view(-1, 3), batch_idx
 
@@ -78,11 +83,13 @@ def extract_rotation_invariant_features(k: int) -> Tuple[Callable[[Union[torch.T
             vs_unit = vs / distance[:, None]
             distance_k = distance[knn].view(-1, k)
             angles, proj_unit = extract_angles(vs_unit, distance_k, vs_k)
-            proj_min_angle =  min_angles(proj_unit, vs_unit)
-            fe = torch.cat([distance.unsqueeze(1), distance_k, angles, proj_min_angle], dim=1)
+            proj_min_angle = min_angles(proj_unit, vs_unit)
+            fe = torch.cat([distance.unsqueeze(1), distance_k,
+                            angles, proj_min_angle], dim=1)
         return fe.view(batch_size, num_pts, num_features)
 
     return extract, num_features
+
 
 class ConvolutionalFeature(Network):
     ''' PointNet-based encoder network with ResNet blocks for each point.
@@ -106,24 +113,24 @@ class ConvolutionalFeature(Network):
 
     def __init__(self, config):
         # defaults from shapenet 3plane
-        self.c_dim : int = 64
-        self.dim : int =3
-        self.hidden_dim : int =32
-        self.scatter_type : str ='max'
-        self.unet : bool = False
-        self.unet_kwargs: dict = dict(depth=4, merge_mode='concat', start_filts=32)
-        self.unet3d : bool = False
-        self.unet3d_kwargs : dict =None
-        self.reso_plane : int = 64
-        self.reso_grid : int = 32
+        self.c_dim: int = 64
+        self.dim: int = 3
+        self.hidden_dim: int = 32
+        self.scatter_type: str = 'max'
+        self.unet: bool = False
+        self.unet_kwargs: dict = dict(
+            depth=4, merge_mode='concat', start_filts=32)
+        self.unet3d: bool = False
+        self.unet3d_kwargs: dict = None
+        self.reso_plane: int = 64
+        self.reso_grid: int = 32
         self.subpixel_upsampling: int = 1  # ratio for subpixel upsampling
-        self.plane_type : List[str] = ['xz', 'xy', 'yz']
-        self.padding : float =0.1
-        self.n_blocks : int = 5
-        self.sample_mode : str = "bilinear"
-        self.input_normals : bool = False
+        self.plane_type: List[str] = ['xz', 'xy', 'yz']
+        self.n_blocks: int = 5
+        self.sample_mode: str = "bilinear"
+        self.input_normals: bool = False
         self.bbox_size: float = 2.0
-        self.clusternet_feature : bool = False
+        self.clusternet_feature: bool = False
         super().__init__(config)
 
     def _initialize(self):
@@ -138,9 +145,9 @@ class ConvolutionalFeature(Network):
 
         if self.clusternet_feature:
             self.extractor, dim = extract_rotation_invariant_features(8)
-        self.fc_pos = nn.Linear(dim, 2*hidden_dim)
+        self.fc_pos = nn.Linear(dim, 2 * hidden_dim)
         self.blocks = nn.ModuleList([
-            ResnetBlockFC(2*hidden_dim, hidden_dim) for i in range(n_blocks)
+            ResnetBlockFC(2 * hidden_dim, hidden_dim) for i in range(n_blocks)
         ])
         self.fc_c = nn.Linear(hidden_dim, c_dim)
 
@@ -148,7 +155,8 @@ class ConvolutionalFeature(Network):
         self.hidden_dim = hidden_dim
 
         if unet:
-            self.unet = UNet(c_dim*(self.subpixel_upsampling**2), in_channels=c_dim, **unet_kwargs)
+            self.unet = UNet(c_dim * (self.subpixel_upsampling**2),
+                             in_channels=c_dim, **unet_kwargs)
         else:
             self.unet = None
 
@@ -171,17 +179,20 @@ class ConvolutionalFeature(Network):
 
         self.last_epoch = -1
 
-
     def generate_plane_features(self, p, c, plane='xz'):
         # acquire indices of features in plane
-        xy = normalize_coordinate(p.clone(), plane=plane, padding=self.padding, bbox_size=self.bbox_size) # normalize to the range of (0, 1)
+        # normalize to the range of (0, 1)
+        xy = normalize_coordinate(
+            p.clone(), plane=plane, bbox_size=self.bbox_size)
         index = coordinate2index(xy, self.reso_plane)
 
         # scatter plane features from points
         fea_plane = c.new_zeros(p.size(0), self.c_dim, self.reso_plane**2)
-        c = c.permute(0, 2, 1) # B x 512 x torch.Tensor
-        fea_plane = scatter_mean(c, index, out=fea_plane) # B x 512 x reso^2
-        fea_plane = fea_plane.reshape(p.size(0), self.c_dim, self.reso_plane, self.reso_plane) # sparce matrix (B x 512 x reso x reso)
+        c = c.permute(0, 2, 1)  # B x 512 x torch.Tensor
+        fea_plane = scatter_mean(c, index, out=fea_plane)  # B x 512 x reso^2
+        # sparce matrix (B x 512 x reso x reso)
+        fea_plane = fea_plane.reshape(
+            p.size(0), self.c_dim, self.reso_plane, self.reso_plane)
 
         # process the plane features with UNet
         if self.unet is not None:
@@ -194,13 +205,16 @@ class ConvolutionalFeature(Network):
         return fea_plane
 
     def generate_grid_features(self, p, c):
-        p_nor = normalize_3d_coordinate(p.clone(), padding=self.padding, bbox_size=self.bbox_size)
+        p_nor = normalize_3d_coordinate(
+            p.clone(), bbox_size=self.bbox_size)
         index = coordinate2index(p_nor, self.reso_grid, coord_type='3d')
         # scatter grid features from points
         fea_grid = c.new_zeros(p.size(0), self.c_dim, self.reso_grid**3)
         c = c.permute(0, 2, 1)
-        fea_grid = scatter_mean(c, index, out=fea_grid) # B x C x reso^3
-        fea_grid = fea_grid.reshape(p.size(0), self.c_dim, self.reso_grid, self.reso_grid, self.reso_grid) # sparce matrix (B x 512 x reso x reso)
+        fea_grid = scatter_mean(c, index, out=fea_grid)  # B x C x reso^3
+        # sparce matrix (B x 512 x reso x reso)
+        fea_grid = fea_grid.reshape(
+            p.size(0), self.c_dim, self.reso_grid, self.reso_grid, self.reso_grid)
 
         if self.unet3d is not None:
             fea_grid = self.unet3d(fea_grid)
@@ -218,9 +232,11 @@ class ConvolutionalFeature(Network):
         for key in keys:
             # scatter plane features from points
             if key == 'grid':
-                fea = self.scatter(c.permute(0, 2, 1), index[key], dim_size=self.reso_grid**3)
+                fea = self.scatter(c.permute(0, 2, 1),
+                                   index[key], dim_size=self.reso_grid**3)
             else:
-                fea = self.scatter(c.permute(0, 2, 1), index[key], dim_size=self.reso_plane**2)
+                fea = self.scatter(c.permute(0, 2, 1),
+                                   index[key], dim_size=self.reso_plane**2)
             if self.scatter == scatter_max:
                 fea = fea[0]
             # gather feature back to points
@@ -228,7 +244,9 @@ class ConvolutionalFeature(Network):
             c_out += fea
         return c_out.permute(0, 2, 1)
 
-    def query_feature(self, fea: Dict[str, torch.Tensor], query_coords: torch.Tensor)->torch.Tensor:
+    def query_feature(self, fea: Dict[str, torch.Tensor], query_coords: torch.Tensor) -> torch.Tensor:
+        self.bbox_size = getattr(self.runner.data, 'bbox_size', self.bbox_size)
+
         # originally inside the decoder
         if self.c_dim != 0:
             plane_type = list(fea.keys())
@@ -237,11 +255,14 @@ class ConvolutionalFeature(Network):
             if 'grid' in plane_type:
                 c += self.sample_grid_feature(query_coords, fea['grid'])
             if 'xz' in plane_type:
-                c += self.sample_plane_feature(query_coords, fea['xz'], plane='xz')
+                c += self.sample_plane_feature(query_coords,
+                                               fea['xz'], plane='xz')
             if 'xy' in plane_type:
-                c += self.sample_plane_feature(query_coords, fea['xy'], plane='xy')
+                c += self.sample_plane_feature(query_coords,
+                                               fea['xy'], plane='xy')
             if 'yz' in plane_type:
-                c += self.sample_plane_feature(query_coords, fea['yz'], plane='yz')
+                c += self.sample_plane_feature(query_coords,
+                                               fea['yz'], plane='yz')
             c = c.transpose(1, 2)
 
         return c
@@ -258,51 +279,60 @@ class ConvolutionalFeature(Network):
             c = 0
             if 'grid' in plane_type:
                 batch_size = fea['grid'].shape[0]
-                c_max = fea['grid'].view(batch_size, self.c_dim, -1).max(dim=-1)[0]
-                c_avg = fea['grid'].view(batch_size, self.c_dim, -1).mean(dim=-1)
+                c_max = fea['grid'].view(
+                    batch_size, self.c_dim, -1).max(dim=-1)[0]
+                c_avg = fea['grid'].view(
+                    batch_size, self.c_dim, -1).mean(dim=-1)
                 c += torch.cat([c_max, c_avg], dim=-1)
             if 'xz' in plane_type:
                 batch_size = fea['xz'].shape[0]
-                c_max = fea['xz'].view(batch_size, self.c_dim, -1).max(dim=-1)[0]
+                c_max = fea['xz'].view(
+                    batch_size, self.c_dim, -1).max(dim=-1)[0]
                 c_avg = fea['xz'].view(batch_size, self.c_dim, -1).mean(dim=-1)
                 c += torch.cat([c_max, c_avg], dim=-1)
             if 'xy' in plane_type:
                 batch_size = fea['xy'].shape[0]
-                c_max = fea['xy'].view(batch_size, self.c_dim, -1).max(dim=-1)[0]
+                c_max = fea['xy'].view(
+                    batch_size, self.c_dim, -1).max(dim=-1)[0]
                 c_avg = fea['xy'].view(batch_size, self.c_dim, -1).mean(dim=-1)
                 c += torch.cat([c_max, c_avg], dim=-1)
             if 'yz' in plane_type:
                 batch_size = fea['yz'].shape[0]
-                c_max = fea['yz'].view(batch_size, self.c_dim, -1).max(dim=-1)[0]
+                c_max = fea['yz'].view(
+                    batch_size, self.c_dim, -1).max(dim=-1)[0]
                 c_avg = fea['yz'].view(batch_size, self.c_dim, -1).mean(dim=-1)
                 c += torch.cat([c_max, c_avg], dim=-1)
 
         return c
 
-
     def sample_plane_feature(self, p, c, plane='xz'):
-        xy = normalize_coordinate(p.clone(), plane=plane, padding=self.padding, bbox_size=self.bbox_size) # normalize to the range of (0, 1)
+        # normalize to the range of (0, 1)
+        xy = normalize_coordinate(
+            p.clone(), plane=plane, bbox_size=self.bbox_size)
         xy = xy[:, :, None].float()
-        vgrid = 2.0 * xy - 1.0 # normalize to (-1, 1)
+        vgrid = 2.0 * xy - 1.0  # normalize to (-1, 1)
         if c.shape[0] == 1 and vgrid.shape[0] > 0:
             c = c.expand(vgrid.shape[0], -1, -1, -1)
         c = grid_sample_2d(c, vgrid).squeeze(-1)
         return c
 
     def sample_grid_feature(self, p, c):
-        p_nor = normalize_3d_coordinate(p.clone(), padding=self.padding, bbox_size=self.bbox_size) # normalize to the range of (0, 1)
+        # normalize to the range of (0, 1)
+        p_nor = normalize_3d_coordinate(
+            p.clone(), bbox_size=self.bbox_size)
         p_nor = p_nor[:, :, None, None].float()
-        vgrid = 2.0 * p_nor - 1.0 # normalize to (-1, 1)
+        vgrid = 2.0 * p_nor - 1.0  # normalize to (-1, 1)
         # acutally trilinear interpolation if mode = 'bilinear'
         if c.shape[0] == 1 and vgrid.shape[0] > 0:
-            c = c.expand(vgrid.shape[0], -1, -1 , -1, -1)
+            c = c.expand(vgrid.shape[0], -1, -1, -1, -1)
         c = grid_sample_3d(c, vgrid).squeeze(-1).squeeze(-1)
         return c
 
     def encode(self, input: torch.Tensor) -> Dict[str, torch.Tensor]:
-        input_coords = input[...,:3]
+        self.bbox_size = getattr(self.runner.data, 'bbox_size', self.bbox_size)
+        input_coords = input[..., :3]
         if self.input_normals:
-            input_feats = input[...,3:(3+self.dim)]
+            input_feats = input[..., 3:(3 + self.dim)]
         elif self.clusternet_feature:
             input_feats = self.extractor(input_coords)
         else:
@@ -312,17 +342,22 @@ class ConvolutionalFeature(Network):
         coord = {}
         index = {}
         if 'xz' in self.plane_type:
-            coord['xz'] = normalize_coordinate(input_coords.clone(), plane='xz', padding=self.padding, bbox_size=self.bbox_size)
+            coord['xz'] = normalize_coordinate(input_coords.clone(
+            ), plane='xz', bbox_size=self.bbox_size)
             index['xz'] = coordinate2index(coord['xz'], self.reso_plane)
         if 'xy' in self.plane_type:
-            coord['xy'] = normalize_coordinate(input_coords.clone(), plane='xy', padding=self.padding, bbox_size=self.bbox_size)
+            coord['xy'] = normalize_coordinate(input_coords.clone(
+            ), plane='xy', bbox_size=self.bbox_size)
             index['xy'] = coordinate2index(coord['xy'], self.reso_plane)
         if 'yz' in self.plane_type:
-            coord['yz'] = normalize_coordinate(input_coords.clone(), plane='yz', padding=self.padding, bbox_size=self.bbox_size)
+            coord['yz'] = normalize_coordinate(input_coords.clone(
+            ), plane='yz', bbox_size=self.bbox_size)
             index['yz'] = coordinate2index(coord['yz'], self.reso_plane)
         if 'grid' in self.plane_type:
-            coord['grid'] = normalize_3d_coordinate(input_coords.clone(), padding=self.padding, bbox_size=self.bbox_size)
-            index['grid'] = coordinate2index(coord['grid'], self.reso_grid, coord_type='3d')
+            coord['grid'] = normalize_3d_coordinate(
+                input_coords.clone(), bbox_size=self.bbox_size)
+            index['grid'] = coordinate2index(
+                coord['grid'], self.reso_grid, coord_type='3d')
 
         net = self.fc_pos(input_feats)
 
@@ -338,22 +373,29 @@ class ConvolutionalFeature(Network):
         if 'grid' in self.plane_type:
             fea['grid'] = self.generate_grid_features(input_coords, c)
         if 'xz' in self.plane_type:
-            fea['xz'] = self.generate_plane_features(input_coords, c, plane='xz')
+            fea['xz'] = self.generate_plane_features(
+                input_coords, c, plane='xz')
         if 'xy' in self.plane_type:
-            fea['xy'] = self.generate_plane_features(input_coords, c, plane='xy')
+            fea['xy'] = self.generate_plane_features(
+                input_coords, c, plane='xy')
         if 'yz' in self.plane_type:
-            fea['yz'] = self.generate_plane_features(input_coords, c, plane='yz')
+            fea['yz'] = self.generate_plane_features(
+                input_coords, c, plane='yz')
 
         return fea
 
     def query_local_coordinates(self, input_coords):
-        if "grid " in self.plane_type and len(self.plane_type)>1:
+        self.bbox_size = getattr(self.runner.data, 'bbox_size', self.bbox_size)
+
+        if "grid " in self.plane_type and len(self.plane_type) > 1:
             # make sure plane resolution is the same as grid resolution
-            assert(self.reso_grid == self.reso_plane), "Local coordinates mapping only supports equal grid_reso and plane_reso"
+            assert(self.reso_grid ==
+                   self.reso_plane), "Local coordinates mapping only supports equal grid_reso and plane_reso"
 
         # assuming input in between -0.5 to 0.5
-        p_nor = normalize_3d_coordinate(input_coords.clone(), padding=self.padding, bbox_size=self.bbox_size)
-        vgrid = 2.0 * p_nor - 1.0 # normalize to (-1, 1)
+        p_nor = normalize_3d_coordinate(
+            input_coords.clone(), bbox_size=self.bbox_size)
+        vgrid = 2.0 * p_nor - 1.0  # normalize to (-1, 1)
 
         if 'grid' in self.plane_type:
             cell_size = 2.0 / self.reso_plane
@@ -386,18 +428,23 @@ class ConvolutionalFeature(Network):
         torch.save(self, path)
 
 
-
 def depthToVolume(x, upsample_ratio):
     N, C, D, H, W = x.shape
-    x = x.view(N, upsample_ratio, upsample_ratio, upsample_ratio, C // (upsample_ratio ** 3), D, H, W)  # (N, bs, bs, bs, C//bs^3, D, H, W)
-    x = x.permute(0, 4, 5, 1, 6, 2, 7, 3).contiguous()  # (N, C//bs^2, D, bs H, bs, W, bs)
-    x = x.view(N, C // (upsample_ratio ** 3), D*upsample_ratio, H * upsample_ratio, W * upsample_ratio)  # (N, C//bs^2, H * bs, W * bs)
+    x = x.view(N, upsample_ratio, upsample_ratio, upsample_ratio, C //
+               (upsample_ratio ** 3), D, H, W)  # (N, bs, bs, bs, C//bs^3, D, H, W)
+    # (N, C//bs^2, D, bs H, bs, W, bs)
+    x = x.permute(0, 4, 5, 1, 6, 2, 7, 3).contiguous()
+    x = x.view(N, C // (upsample_ratio ** 3), D * upsample_ratio, H *
+               upsample_ratio, W * upsample_ratio)  # (N, C//bs^2, H * bs, W * bs)
     return x
 
 
 def volumeToDepth(x, upsample_ratio):
     N, C, D, H, W = x.shape
-    x = x.view(N, C, D // upsample_ratio, upsample_ratio, H // upsample_ratio, upsample_ratio, W // upsample_ratio, upsample_ratio)  # (N, C, D//bs, bs, H//bs, bs, W//bs, bs)
-    x = x.permute(0, 3, 5, 7, 1, 2, 4, 6).contiguous()  # (N, bs, bs, bs, C, D//bs, H//bs, W//bs)
-    x = x.view(N, C * (upsample_ratio ** 3), H // upsample_ratio, W // upsample_ratio)  # (N, C*bs^2, H//bs, W//bs)
+    x = x.view(N, C, D // upsample_ratio, upsample_ratio, H // upsample_ratio, upsample_ratio,
+               W // upsample_ratio, upsample_ratio)  # (N, C, D//bs, bs, H//bs, bs, W//bs, bs)
+    # (N, bs, bs, bs, C, D//bs, H//bs, W//bs)
+    x = x.permute(0, 3, 5, 7, 1, 2, 4, 6).contiguous()
+    x = x.view(N, C * (upsample_ratio ** 3), H // upsample_ratio,
+               W // upsample_ratio)  # (N, C*bs^2, H//bs, W//bs)
     return x

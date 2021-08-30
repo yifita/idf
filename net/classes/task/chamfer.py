@@ -1,3 +1,4 @@
+#
 from pykdtree.kdtree import KDTree
 from task.task import Task
 import torch
@@ -60,7 +61,20 @@ def Compute_Chamfer(mesh : trimesh.Trimesh,runner, name : str = "chamfer_{0}_{1}
     coords_new = coords_new.astype(np.float32)
     normals_new = mesh.face_normals[idx_new,:]
     normals_new = normals_new.astype(np.float32)
-
+     
+    #if self.recenter:
+    #    if self.runner.data.keep_aspect_ratio:
+    #        coord_max = np.amax(coords_new)
+    #        coord_min = np.amin(coords_new)
+    #
+    #    else:
+    #        coord_max = np.amax(coords_new, axis=0, keepdims=True)
+    #        coord_min = np.amin(coords_new, axis=0, keepdims=True)
+    #
+    #    coords_new = (coords_new - coord_min) / (coord_max - coord_min)
+    #    coords_new = coords_new*2 -1
+    #else:
+    #    coords =self.runner.data.backtransform(coords)
     print(coords_new.dtype, coords.dtype)
     kdTree = KDTree(coords)
     d1,idx1 = kdTree.query(coords_new)
@@ -70,13 +84,13 @@ def Compute_Chamfer(mesh : trimesh.Trimesh,runner, name : str = "chamfer_{0}_{1}
     d2,idx2 = inverseTree.query(coords)
     #compute normal deformation
     nd2 = NP_Cosine(normals_new[idx2,:],normals)
-    #mapping direction we either map
+    #mapping direction we either map 
     e2gt = "evalToGt"
     gt2e = "gtToEval"
 
     runner.logger.log_hist(name.format(e2gt,"hist"),d1)
     runner.logger.log_hist(name.format(gt2e,"hist"),d2)
-
+    
     runner.logger.log_hist(name.format(e2gt,"_normal_hist"),nd1)
     runner.logger.log_hist(name.format(e2gt,"_normal_hist"),nd2)
     runner.logger.log_scalar(name.format(e2gt,""),d1.mean())
@@ -87,19 +101,19 @@ def Compute_Chamfer(mesh : trimesh.Trimesh,runner, name : str = "chamfer_{0}_{1}
     runner.logger.log_scalar(name.format("sum","normal"),(nd1+nd2).mean())
     runner.logger.log_scalar(name.format(e2gt,"median"),np.median(d1))
     runner.logger.log_scalar(name.format(gt2e,"median"),np.median(d2))
-
+    
     if(save_mesh):
         runner.logger.log_mesh(name.format(e2gt,"normal_mesh"),
                             vertices = coords_new.reshape([1,-1,3]),
-                            faces = None,
+                            faces = None, 
                             colors = get_color(d1,"cool",d1.min(),d1.max()).reshape(1,-1,3),
                             vertex_normals = normals_new.reshape(1,-1,3))
         runner.logger.log_mesh(name.format(gt2e,"normal_mesh"),
                             vertices = coords.reshape([1,-1,3]),
-                            faces = None,
+                            faces = None, 
                             colors = get_color(d2,"cool",d2.min(),d2.max()).reshape(1,-1,3),
                             vertex_normals = normals.reshape(1,-1,3))
-
+    
     #if(save_mesh):
     #    runner.logger.log_mesh(f"{folder}/{name.format(e2gt,'normal_mesh')}.ply",
     #                        vertices = coords_new,
@@ -109,7 +123,7 @@ def Compute_Chamfer(mesh : trimesh.Trimesh,runner, name : str = "chamfer_{0}_{1}
     #                        vertices = coords,
     #                        colors = get_color(d2,"cool",d2.min(),d2.max()),
     #                        normals = normals)
-
+                                    
 
 class Chamfer(Task):
 
@@ -133,10 +147,10 @@ class Chamfer(Task):
         print(f"{self.load_folder}/*{self.tag}*")
         file = get_youngest_file(files)
         len(self.runner.data)
-
+       
         self.runner.py_logger.info(f'Loading mesh {file}.')
         mesh = trimesh.load(file)
         Compute_Chamfer(mesh,self.runner)
-
+        
 
 

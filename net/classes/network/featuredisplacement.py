@@ -28,6 +28,8 @@ class FeatureDisplacement(Network):
         self.detach_query: bool = False
         self.use_tanh: bool = True
         self.query_modes: List[str] = ["BSDF"]  # BSDF (base_sdf), BN (base_normal), LC (local cell coords)
+        # duplicated
+        self.base_normal_in_coord: bool = False  # input base normal to residual net
         super().__init__(config)
 
         for m in self.query_modes:
@@ -40,6 +42,10 @@ class FeatureDisplacement(Network):
 
         self.register_buffer('factor', torch.tensor(self.offset_max))
         self.epoch = 0
+
+        # compatibility deprecated
+        if self.base_normal_in_coord:
+            self.query_modes = ["BSDF", "BN"]
 
 
     def encode(self, args:Dict)->torch.Tensor:
@@ -92,7 +98,6 @@ class FeatureDisplacement(Network):
 
             outputs['gt'] = gt_sdf
 
-
         ###### base sdf and normal for query points #######
         # compute gradient. Not necessary to make graph, unless we want to use autograd to compute gradient of sdf wrt p
         # the entire way. Currently we opt for using finitely difference
@@ -124,9 +129,6 @@ class FeatureDisplacement(Network):
         else:
             query_features = self.feature.query_feature(fea, input_points_t)
 
-        if is_train and self.training and (self.epoch % 2 == 0):
-            self.runner.logger.log_hist("query_feature", query_features.detach())
-
         if is_train:
             self.factor.fill_(min(self.epoch*self.offset_base, self.offset_max))
             self.runner.logger.log_scalar("factor", self.factor)
@@ -142,6 +144,7 @@ class FeatureDisplacement(Network):
             else:
                 pass
 
+            # query_features.add_(torch.randn_like(query_features)*0.05)
             dis_coords = []
             for mode in self.query_modes:
                 if mode == "BSDF":
@@ -156,7 +159,6 @@ class FeatureDisplacement(Network):
                     dis_coords.append(local_points.view(batch_size, -1, 3))
 
             dis_coords = torch.cat(dis_coords, dim=-1)
-
             displacement = self.residual({"coords": dis_coords, "x": query_features, "detach": False, "epoch": self.epoch})["sdf"]
 
         # limit displacement to -1~1

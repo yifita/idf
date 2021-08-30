@@ -39,7 +39,8 @@ class CameraConfiguration:
 
     @staticmethod
     def get_camera_file(name:str):
-        return f"{Config.camera_folder}/camera_{name}.pkl"
+        path = os.path.abspath(Config.camera_folder)
+        return f"{path}/camera_{name}.pkl"
 
     @staticmethod
     def load_all():
@@ -51,6 +52,7 @@ class CameraConfiguration:
                 match = pattern.search(camera)
                 if(len(match.group())>0):
                     with open(camera, 'rb') as infile:
+                        print(f"Loading Camera {match.group(1)}")
                         c = CameraConfiguration()
                         c.__dict__.update(load(infile))
                         CameraConfiguration.configurations[match.group(1)] = c

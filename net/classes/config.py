@@ -83,7 +83,7 @@ class ConfigObject(object):
         if self.runner is not self:
             self.py_logger = self.runner.py_logger
         else:
-            self.py_logger = get_logger("runner")
+            self.py_logger = get_logger(self.runner.name)
         for key,value in key_value.items():
             self.process(value,key)
 

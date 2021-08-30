@@ -106,8 +106,8 @@ class CloudSampler(CDataset):
         sdf.reshape(shp[:-1])
         if is_tensor:
             sdf = torch.from_numpy(sdf).to(device=device, dtype=dtype)
-        print(sdf)
         return sdf
+
     def get_sdf_(self, query_points):
         self._init()
         shp = query_points.shape
@@ -118,11 +118,11 @@ class CloudSampler(CDataset):
             query_points = query_points.cpu().detach().numpy().reshape(-1, 3)
 
         sdf,normals = self._get_sdf(query_points)
-        sdf.reshape(shp[:-1])
+        sdf = sdf.reshape(shp[:-1])
         if is_tensor:
             sdf = torch.from_numpy(sdf).to(device=device, dtype=dtype)
             normals = torch.from_numpy(normals).to(device=device, dtype=dtype)
-        print(sdf)
+
         return sdf,normals
 
     def _get_sdf(self, query_points):

@@ -1,14 +1,19 @@
+import sys
 import matplotlib as mpl
-mpl.use('Agg')
 import torch
 import numpy as np
+mpl.use('Agg')
+from config import ConfigObject, build_config_file
 import importlib
+from typing import List,Dict,Iterable,Set
 import os
 import json
-from config import ConfigObject, build_config_file
-from typing import List,Dict,Iterable,Set
 from collections import defaultdict
+import time
 
+from helper import AllOf
+
+sys.path.append('../convolutional_occupancy_networks/')
 
 typenames = {
     "trainer" : "trainer.",
@@ -24,6 +29,7 @@ typenames = {
 def mkdir(path):
     if(not os.path.exists(path)):
         os.makedirs(path)
+
 
 class Runner(ConfigObject):
 
@@ -42,12 +48,18 @@ class Runner(ConfigObject):
         name = config.get("name", self.name)
         self.folder = os.path.join("runs", name)
         mkdir(self.folder)
-
         self.evaluator : "Evaluator" = None
         self.data_path : str = "./"
         self.name = name
+        self.perf_test = False
 
         super().__init__(config)
+        if(self.perf_test):
+            self.evaluators =  AllOf([])
+            self.loggers = AllOf([])
+            import logging
+            logging.disable(logging.CRITICAL)
+
 
     @staticmethod
     def filterdict(config : Dict[str,object]):
@@ -99,6 +111,10 @@ class Runner(ConfigObject):
         return getattr(importlib.import_module(basename),classname)
 
     def run(self):
+
+        if(self.perf_test):
+                print("Starting Script in testing mode all logging disabled")
+
         if(self.skip_if_exists is not None and os.path.exists(self.skip_if_exists)):
             return
         if(self.comparehash("runner",self.key_value)):
@@ -111,11 +127,17 @@ class Runner(ConfigObject):
             os.remove(runfile)
 
         self.py_logger.info(f"Running runner {self.name}\n")
+        current_time = time.time()
+
         for task in self.tasks:
             self.active_task = task
             task()
+
         self.py_logger.info(f"Runner {self.name} has finished\n")
         self.savehash("runner",self.key_value)
+        if(self.perf_test):
+            print(f"Script took {time.time()-current_time}s to compute")
+
 
 from copy import copy
 

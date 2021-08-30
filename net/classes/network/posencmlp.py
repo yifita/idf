@@ -76,6 +76,8 @@ class PosEncMLP(Network):
         self.geometric_init: bool = True
         self.annealing : bool = True
         self.annealing_params : Dict = None
+        self.has_last_nonlinear: bool = True
+        self.out_dim : int = 1
         super().__init__(config)
         # update annealing params with default ones
         self._annealing_params = dict(maxing_step=0.8)
@@ -98,7 +100,7 @@ class PosEncMLP(Network):
         bias = self.bias
         weight_norm = self.weight_norm
 
-        dims = [dim] + [hidden_size] * n_layers + [1]
+        dims = [dim] + [hidden_size] * n_layers + [self.out_dim]
 
         self.embed_fn = None
         if num_frequencies > 0:
@@ -190,17 +192,8 @@ class PosEncMLP(Network):
 
             x = lin(x)
 
-            # if (self._epoch % 10) == 0:
-            #     self.runner.logger.log_hist(f'PosEncMlp_l{l}_output', x.detach())
-            #     # self.runner.logger.log_hist(f'PosEncMlp_l{l}_weight_g', lin.weight_g.detach())
-            #     # self.runner.logger.log_hist(f'PosEncMlp_l{l}_weight_v', lin.weight_v.detach())
-            #     self.runner.logger.log_hist(f'PosEncMlp_l{l}_weight', lin.weight.detach())
-            #     self.runner.logger.log_hist(f'PosEncMlp_l{l}_bias', lin.bias.detach())
-
-            if l < self.num_layers - 2:
+            if self.has_last_nonlinear and l < self.num_layers - 2:
                 x = self.softplus(x)
-                # if (self._epoch % 2) == 0:
-                #     self.runner.logger.log_hist(f'PosEncMlp_l{l}_softplus', x.detach())
 
         outputs["sdf"] = x
         return outputs

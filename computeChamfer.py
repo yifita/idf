@@ -142,14 +142,22 @@ def Compute_Chamfer(
     #mapping direction we either map
     e2gt = "evalToGt"
     gt2e = "gtToEval"
+    d1_max = d1.max()
+    d2_max = d2.max()
 
+    nd1_max = nd1.max()
+    nd2_max = nd2.max()
     output = {}
     output[e2gt] = d1.mean()
-    output[gt2e] = d1.mean()
-    output["sum"] = (d1+d2).mean()
+    output[gt2e] = d2.mean()
+    output[f"{e2gt}_max"] = d1_max
+    output[f"{gt2e}_max"] = d2_max
+    output["hausdorff"] = max(d1_max,d2_max)
+    output["sum"] = (d1.mean()+d2.mean())
     output[f"{e2gt}_normal"] = nd1.mean()
-    output[f"{gt2e}_normal"] = nd1.mean()
-    output[f"sum_normal"] = nd1.mean() + nd2.mean()
+    output[f"{gt2e}_normal"] = nd2.mean()
+    output["hausdorff_normal"] = max(nd1_max,nd2_max)
+    output["sum_normal"] = nd1.mean() + nd2.mean()
     output[f"{gt2e}_pc"] = trimesh.Trimesh(vertices=coords_new,
                                            vertex_colors=get_color(d1,"cool",d1.min(),d1.max()),
                                            normals = normals_new
@@ -217,7 +225,7 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--samples",
-        default=100000,type=int,
+        default=4000000,type=int,
         help="""Number of points to evaluate"""
     )
 
@@ -246,7 +254,7 @@ if __name__ == "__main__":
                 print(f"\033[91m", file = original_stdout)
                 print(f"{modelname}:")
                 print(f"\033[0m", file = original_stdout)
-                meshEval = trimesh.load(file)
+                meshEval = trimesh.load(file, process=False)
                 meshGt = load_point_cloud(modelfile,args.samples)
                 print(f"loaded {meshGt[0].shape[0]} points", file = original_stdout)
                 meshGt = trimesh.Trimesh(meshGt[0],vertex_normals=meshGt[1])

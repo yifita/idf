@@ -1,7 +1,9 @@
 from network.network import Network
+from pykdtree.kdtree import KDTree
 from network.siren import gradient
 import torch
 import torch.nn.functional as F
+from network.fe.feature_extractor import FeatureExtractor
 
 class Residual(Network):
 
@@ -9,6 +11,10 @@ class Residual(Network):
         self.base : Network = None
         self.residual : Network = None
         self.freeze_base : bool = False
+        self.close_surface_activation : bool = False
+        self.activation_threshold : float = 0.02
+        self.use_tanh : bool = False
+        self.alpha : float = 0.05
         super().__init__(config)
 
         self.epoch = 0
@@ -17,16 +23,9 @@ class Residual(Network):
                 param.requires_grad = False
         if(hasattr(self.residual,"base")):
             self.residual.base = self.base
+
     def _initialize(self):
         pass
-
-    def alpha(self,base):
-        R = 100
-        #den =  (R + torch.exp(base**2 / 0.01))
-        #result = (1 + R) / den
-        #print(result)
-        #return result
-        return 100/(base**2/0.0001+100)
 
     def evaluate(self, query_coords, fea=None, **kwargs):
         kwargs.update({'coords': query_coords})
@@ -48,17 +47,22 @@ class Residual(Network):
         value = base["sdf"]
         input_points_t = base["detached"]
 
-        grad = gradient(value,input_points_t, graph=True)
+        if self.close_surface_activation:
+            activation = 1.0 / (1 + (value.detach()/self.activation_threshold)**4)
+        else:
+            activation = torch.ones_like(value).detach()
+
+
+        grad = gradient(value,input_points_t, graph = True)
         normal = F.normalize(grad,p=2,dim=1)
         residual = self.residual({"coords":input_points_t,"detach":False})["sdf"]
-        offset = self.alpha(value)
 
-        prediction = value + (offset*residual)
+        if self.use_tanh:
+            residual = torch.tanh(residual)
+        residual = self.alpha*residual*activation
+        prediction = value + residual
 
-        self.runner.logger.log_hist("residual",offset*residual)
-        self.runner.logger.log_hist("residual",residual)
-
-        return {"sdf":prediction, "detached":input_points_t,"base":value, "residual":offset*residual, "base_normal":normal}
+        return {"sdf":prediction, "detached":input_points_t,"base":value, "residual":residual, "base_normal":normal}
 
     def set_base(self, base):
         self.base = base

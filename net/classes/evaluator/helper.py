@@ -46,9 +46,10 @@ def get_surface_high_res_mesh(sdf_func, resolution=100, box_side_length=2.0, lar
 
     mesh_low_res = trimesh.Trimesh(verts, faces, normals)
 
-    components = mesh_low_res.split(only_watertight=False)
-    areas = np.array([c.area for c in components], dtype=np.float)
-    mesh_low_res = components[areas.argmax()]
+    if largest_component:
+        components = mesh_low_res.split(only_watertight=False)
+        areas = np.array([c.area for c in components], dtype=np.float)
+        mesh_low_res = components[areas.argmax()]
 
     recon_pc = trimesh.sample.sample_surface(mesh_low_res, 10000)[0]
     recon_pc = torch.from_numpy(recon_pc).float().cuda()

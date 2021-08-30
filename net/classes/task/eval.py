@@ -3,6 +3,7 @@ import torch
 from task.task import Task
 from torch.utils.data import DataLoader
 from checkpoint_io import CheckpointIO
+import time
 
 class Eval(Task):
 
@@ -32,17 +33,20 @@ class Eval(Task):
                                  pin_memory=self.pin_memory, num_workers=0)
             self.runner.py_logger.info("Starting to evaluate for dataset.")
 
-            lossEpoch = 0
-            stepsInEpoch = 0
             loss_value = 0
-
+            eval_start_time = time.time()
+            stepsInEpoch = 0
+            lossEpoch = 0.0
+            valuesInEpoch = 0
+            
             for i, model_input in enumerate(dataset):
                 for k,v in model_input.items():
                     if isinstance(v,torch.Tensor):
                         model_input[k] = v.cuda()
                 # detach the input
                 model_input["detach"] = True
-                self.runner.evaluator.epoch_hook(i, model_input)
+                if not self.runner.perf_test:
+                    self.runner.evaluator.epoch_hook(i, model_input)
 
                 if self.evaluate_loss and hasattr(self.runner, 'loss'):
                     model_output = self.runner.network(model_input)
@@ -62,10 +66,13 @@ class Eval(Task):
                 self.runner.logger.increment()
                 stepsInEpoch += 1
 
-            if hasattr(self.runner, 'loss'):
-                self.runner.logger.log_scalar("loss_final", lossEpoch/stepsInEpoch)
-                self.runner.py_logger.info(f"loss_final: {lossEpoch/stepsInEpoch}")
-            self.runner.py_logger.info(f"eval finished")
+            if not self.runner.perf_test:
+                if hasattr(self.runner, 'loss'):
+                    self.runner.logger.log_scalar("loss_final", lossEpoch/stepsInEpoch)
+                    self.runner.py_logger.info(f"loss_final: {lossEpoch/stepsInEpoch}")
+                self.runner.py_logger.info(f"eval finished")
+            else:
+                print(f"Evaluation of {stepsInEpoch} steps took {time.time()-eval_start_time}s")
         else:
             # evaluate mesh and levelset
             self.runner.evaluator.epoch_hook(0, {})

@@ -96,7 +96,8 @@ class Displacement(Network):
 
         ########## displacement ###########
         if hasattr(self, "use_normal") and self.use_normal:
-            # CHECK: use detached or connected grad? use normalized or unnormalized
+            if hasattr(self, "scale_base_value") and self.scale_base_value:
+                value = torch.tanh(0.8/self.activation_threshold*value)
             if self.detach_normal:
                 residual = self.residual({"coords":torch.cat([normal.detach(), value.reshape(-1,1)], 1), "detach":False})["sdf"]
             else:
@@ -111,16 +112,10 @@ class Displacement(Network):
         if self.use_tanh:
             residual = torch.tanh(residual)
 
-        if self.epoch % 1 == 0:
-            self.runner.logger.log_hist("residual", self.factor*residual)
-            self.runner.logger.log_hist("residual_pre", residual)
-
         residual = self.factor*residual*activation
         prediction = input_points_t + residual*normal.detach()
 
         result = self.base({"coords":prediction, "detach":False})["sdf"]
-
-        self.runner.logger.log_scalar("factor", self.factor)
 
         outputs.update({"sdf":result, "detached":input_points_t, "base":value, "residual":residual,
                 "base_normal":grad, "prediction":prediction, "gt":gt_sdf, "activation": activation})

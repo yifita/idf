@@ -1,16 +1,14 @@
 from collections import OrderedDict
-import importlib
-from operator import attrgetter
 import os
 from typing import Tuple,Dict
 import numpy as np
-from torch._C import Value
 from torch.utils import model_zoo
 import torch
 from checkpoint_io import is_url
 from config import ConfigObject
 from evaluator.helper import get_surface_high_res_mesh
 from runner import Runner
+import re
 
 
 class Network(torch.nn.Module, ConfigObject):
@@ -22,7 +20,15 @@ class Network(torch.nn.Module, ConfigObject):
         torch.nn.Module.__init__(self)
         ConfigObject.__init__(self, config)
         self._initialize()
-        if self.state_dict_path is not None and len(self.state_dict_path):
+        if self.state_dict_path is not None and len(self.state_dict_path) > 0:
+            matches = re.findall("\{(.+?)\}", self.state_dict_path)
+            matches = list(set(matches))
+            repl = {}
+            for match in matches:
+                new_match = match.replace('.', '-')
+                repl[new_match] = str(eval('self.'+match))
+                self.state_dict_path = self.state_dict_path.replace(match, new_match)
+            self.state_dict_path = self.state_dict_path.format_map(repl)
             self.load_state(self.state_dict_path)
 
     def _initialize(self):
@@ -89,8 +95,8 @@ class Network(torch.nn.Module, ConfigObject):
 
         except Exception as e:
             self.runner.py_logger.error(repr(e))
-            if not self.ignore_missing_checkpoint:
-                t
+            #if not self.ignore_missing_checkpoint:
+            #    throw object()
 
     def set_runner(self, runner):
         self.runner = runner

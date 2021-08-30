@@ -1,9 +1,14 @@
 from task.task import Task
+from typing import Tuple
 
 class SetNetwork(Task):
+    usable_keys : Tuple[str] = ("network", "data", "loss")
 
     def __init__(self, config):
         super().__init__(config)
+
+    def filter(self, name:str):
+        return name.startswith(self.usable_keys)
 
     def get_class_for(self, name:str, classname:str):
         #all subclasses are of type network
@@ -11,7 +16,7 @@ class SetNetwork(Task):
 
     def process(self, obj:object, key:str):
         # override default config, lazy loading
-        if(key[:len("network")] != "network"):
+        if(not self.filter(key)):
             if(isinstance(obj, dict)) and 'type' in obj:
                 obj["runner"] = self.runner
                 classtype = self.get_class_for(key, obj["type"])
@@ -29,19 +34,19 @@ class SetNetwork(Task):
 
     def __call__(self):
         for key in self.key_value.keys():
-            if(key[:len("network")] != "network"):
+            if(not self.filter(key)):
                 continue
             value = self.key_value[key]
-            assert(isinstance(value, dict) and 'type' in value)
-            value["runner"] = self.runner
-            value = self.get_class_for("", value['type'])(value)
+            #in case we are recreating a network here
+            if(isinstance(value, dict) and 'type' in value):
+                value["runner"] = self.runner
+                value = self.get_class_for("", value['type'])(value)
 
             self.runner.py_logger.info(f"Setting Network property {key} to value {value}")
             keys =  key.split(".")
-            assert(keys[0] == "network")
-            obj = self.runner.network
 
-            for subkey in keys[1:-1]:
+            obj = self.runner
+            for subkey in keys[0:-1]:
                 obj = getattr(obj, subkey, None)
                 if(obj is None):
                     break
@@ -50,9 +55,3 @@ class SetNetwork(Task):
                 self.runner.py_logger.info(f"Key not found {subkey} from {key}")
 
             setattr(obj, keys[-1], value)
-            # NOTE is it still needed?
-            ## base is shared aka a bit more complicated
-            # if(keys[-1] == "base"):
-            #     obj.set_base(value)
-            # else:
-            #     setattr(obj, keys[-1], value)

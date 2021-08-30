@@ -1,8 +1,30 @@
-import torch
 import numpy as np
 
 
-def normalize_coordinate(p, padding=0.1, plane='xz',bbox_size=1.0):
+def normalize_coord(p, vol_range, plane='xz'):
+    ''' Normalize coordinate to [0, 1] for sliding-window experiments
+
+    Args:
+        p (tensor): point
+        vol_range (numpy array): volume boundary
+        plane (str): feature type, ['xz', 'xy', 'yz'] - canonical planes; ['grid'] - grid volume
+    '''
+    p[:, 0] = (p[:, 0] - vol_range[0][0]) / (vol_range[1][0] - vol_range[0][0])
+    p[:, 1] = (p[:, 1] - vol_range[0][1]) / (vol_range[1][1] - vol_range[0][1])
+    p[:, 2] = (p[:, 2] - vol_range[0][2]) / (vol_range[1][2] - vol_range[0][2])
+
+    if plane == 'xz':
+        x = p[:, [0, 2]]
+    elif plane =='xy':
+        x = p[:, [0, 1]]
+    elif plane =='yz':
+        x = p[:, [1, 2]]
+    else:
+        x = p
+    return x
+
+
+def normalize_coordinate(p, plane='xz',bbox_size=1.0):
     ''' Normalize coordinate to [0, 1] for unit cube experiments
 
     Args:
@@ -17,7 +39,7 @@ def normalize_coordinate(p, padding=0.1, plane='xz',bbox_size=1.0):
     else:
         xy = p[:, :, [1, 2]]
 
-    xy_new = xy / (1 + padding + 10e-6) / bbox_size # (-0.5, 0.5)
+    xy_new = xy / bbox_size # (-0.5, 0.5)
     xy_new = xy_new + 0.5 # range (0, 1)
 
     # f there are outliers out of the range
@@ -27,7 +49,7 @@ def normalize_coordinate(p, padding=0.1, plane='xz',bbox_size=1.0):
         xy_new[xy_new < 0] = 0.0
     return xy_new
 
-def normalize_3d_coordinate(p, padding=0.1, bbox_size=1.0):
+def normalize_3d_coordinate(p, bbox_size=1.0):
     ''' Normalize coordinate to [0, 1] for unit cube experiments.
         Corresponds to our 3D model
 
@@ -35,7 +57,7 @@ def normalize_3d_coordinate(p, padding=0.1, bbox_size=1.0):
         p (tensor): point
         padding (float): conventional padding paramter of ONet for unit cube, so [-0.5, 0.5] -> [-0.55, 0.55]
     '''
-    p_nor = p / (1 + padding + 10e-4) / bbox_size # (-0.5, 0.5)
+    p_nor = p / bbox_size # (-0.5, 0.5)
     p_nor = p_nor + 0.5 # range (0, 1)
     # f there are outliers out of the range
     if p_nor.max() >= 1:
