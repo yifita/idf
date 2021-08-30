@@ -162,7 +162,7 @@
             "dim": 1,
             "hidden_size": 96,
             "mapping_hidden_size": 96,
-            "n_layers": 6,
+            "n_layers": 3,
             "share_frequencies": false,
             "state_dict_path": "runs/shorts_residual_filmsiren/Train/Train_latest.ckpt:network:residual.",
             "type": "FilmSiren"

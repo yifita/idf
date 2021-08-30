@@ -34,7 +34,7 @@ class MappingNet(nn.Module):
         self.n_out_layers : int = n_out_layers
         self.hidden_size : int = hidden_size
 
-        last_length = self.out_dim_per_layer * self.n_out_layers
+        last_length = self.out_dim_per_layer * 2 * self.n_out_layers
         self.net = nn.Sequential(nn.Linear(self.dim, self.hidden_size), nn.Softplus(beta=1),
                 nn.Linear(self.hidden_size, self.hidden_size), nn.Softplus(beta=1),
                 nn.Linear(self.hidden_size, self.hidden_size), nn.Softplus(beta=1),
@@ -53,10 +53,10 @@ class MappingNet(nn.Module):
             frequencies: (B, ..., n_out_layers, out_dim_per_layer)
             biases (B, ..., n_out_layers, out_dim_per_layer)
         """
-        output = self.net(x).view(x.shape[:-1]+(self.n_out_layers, self.out_dim_per_layer))
-        # freqs, biases = output.split(self.out_dim_per_layer, dim=-1)
+        output = self.net(x).view(x.shape[:-1]+(self.n_out_layers, self.out_dim_per_layer*2))
+        freqs, biases = output.split(self.out_dim_per_layer, dim=-1)
 
-        return output
+        return freqs, biases
 
 class FiLMLayer(nn.Module):
     def __init__(self, input_dim, hidden_dim):
@@ -129,23 +129,23 @@ class FilmSiren(Network):
 
         batch_size = c.shape[0]
         # mappingnet (B,...,n_layers,hidden_size)
-        frequencies = self.frequency_net(c)
+        frequencies, biases = self.frequency_net(c)
         frequencies = frequencies * self.base_omega/2 + self.base_omega
 
         if frequencies.shape[-2] != self.n_layers:
             shp = frequencies.shape
-            new_shp= (-1,)*(len(shp)-2)+(self.n_layers,)+(-1,)
+            new_shp= shp[:-2]+(self.n_layers,)+shp[-1:]
             frequencies = frequencies.expand(new_shp)
-            # biases = biases.expand(new_shp)
+            biases = biases.expand(new_shp)
 
         x = coords
         _it = 0
-        for layer, gamma in zip(self.sirens, frequencies.unbind(dim=-2)):
-            # if is_train and self.training and (self.epoch % 2 == 0):
-            #     self.runner.logger.log_hist("filmsiren_lin_weight_%d" % _it, layer.layer.weight.detach())
-            #     self.runner.logger.log_hist("filmsiren_freq_%d" % _it, gamma.detach())
-            #     self.runner.logger.log_hist("filmsiren_bias_%d" % _it, beta.detach())
-            beta = torch.zeros_like(gamma)
+        for layer, gamma, beta in zip(self.sirens, frequencies.unbind(dim=-2), biases.unbind(dim=-2)):
+            if is_train and self.training and (self.epoch % 2 == 0):
+                self.runner.logger.log_hist("filmsiren_lin_weight_%d" % _it, layer.layer.weight.detach())
+                self.runner.logger.log_hist("filmsiren_freq_%d" % _it, gamma.detach())
+                self.runner.logger.log_hist("filmsiren_bias_%d" % _it, beta.detach())
+
             x = layer(x, gamma, beta)
             _it += 1
 

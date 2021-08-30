@@ -41,10 +41,19 @@ python net/classes/runner.py net/experiments/displacement_benchmark/ablation/abl
 This example uses provided base shapes
 ```bash
 sh data/get_dt_shapes.sh
-python net/classes/runner.py net/experiments/displacement_benchmark/transfer/shorts_2phase.json
 
+# evaluation of the pretrained examples. This will save the results in 'runs/shorts_residual_filmsiren'
+python net/classes/runner.py net/experiments/transfer/shorts_2phase.json
 ```
 
+Or you could also train these examples yourselves:
+```bash
+
+sh data/get_dt_shapes.sh
+
+# this will train the base shapes for the source and target shapes, then train the transferable idf
+python net/classes/executor.py net/experiments/transfer/exec.json
+```
 ## bibtex
 ```
 @misc{yifan2021geometryconsistent,
