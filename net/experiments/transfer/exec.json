@@ -1,0 +1,12 @@
+[
+    {"insert": "train_dt_base.json", "hidden_size": 32, "ply": "earthmap_normalized"},
+    {"insert": "train_dt_base.json", "hidden_size": 32, "ply": "BuzzsawVase_normalized"},
+    {
+        "insert": "train_dt_detail.json",
+        "base_hidden": 32,
+        "source_lowres": "earthmap_normalized",
+        "source": "earthmap_normalized",
+        "target_lowres": "BuzzsawVase_normalized",
+        "target": "BuzzsawVase_normalized"
+    }
+]

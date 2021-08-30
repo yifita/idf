@@ -1,0 +1,156 @@
+{
+    "benchmark": false,
+    "name"  : {"concat": ["replace:source", "_residual_siren_BSDF_noConv"]},
+    "data_path" : {"insert":"../datapath.json"},
+    "depends": [
+        {"concat": ["base_", "replace:source_lowres"]},
+        {"concat": ["base_", "replace:target_lowres"]}
+    ],
+    "logger" : [
+        {
+            "type" : "File",
+            "use_step" : true,
+            "include" : ["mesh.*","code_base", "pointcloud.*", "levelset_.*", "contour_.*", "normal_.*"]
+        }
+    ],
+    "tasks" : [
+        {
+            "type":"Train",
+            "name":"Train",
+            "epochs": 80, "learning_rate":1e-4,
+            "batch_size": 2,
+            "phase": {
+                "residual": [[1.0, 1.0]],
+                "base": [[1.0, 0.0]]},
+                "overwrite": true,
+                "update_checkpoint": 20,
+                "resume_from": "Train_latest.ckpt"
+            },
+            {
+                "type":"Eval",
+                "name":"Eval_source",
+                "overwrite": true,
+                "data":  {
+                    "type" : "CloudSampler",
+                    "path" : {"concat": ["data/training_shapes/","replace:source", ".ply"]},
+                    "num_points" : 1000000,
+                    "batch_size" : 1000000,
+                    "pointcloud_size": 3000,
+                    "keep_aspect_ratio" : true,
+                    "bbox_size": 1.0,
+                    "padding": 0.1,
+                    "augment_data": false,
+                    "sample_sdf": false,
+                    "do_normalize": true,
+                    "sphere_normalization":false
+                }
+            },
+            {
+                "type": "SetNetwork",
+                "name":"Eval_target",
+                "network.base":{
+                    "type" : "Siren",
+                    "omega" : 5.0,
+                    "n_layers": 2,
+                    "hidden_size": "replace:base_hidden",
+                    "state_dict_path": {"concat":["runs/base_", "replace:target_lowres", "/Train_", "replace:base_hidden", "/Train_latest.ckpt:network"]}
+                }
+            },
+            {
+                "type":"Eval",
+                "name":"Eval_target",
+                "overwrite": true,
+                "data" :  {
+                    "type" : "CloudSampler",
+                    "path" : {"concat": ["data/training_shapes/", "replace:target_lowres",".ply"]},
+                    "num_points" : 1000000,
+                    "batch_size" : 1000000,
+                    "pointcloud_size": 3000,
+                    "keep_aspect_ratio" : true,
+                    "bbox_size": 1.0,
+                    "padding": 0.1,
+                    "augment_data": false,
+                    "sample_sdf": false,
+                    "do_normalize": true,
+                    "sphere_normalization":false
+                }
+            }
+        ],
+        "network" : {
+            "type" : "Displacement",
+            "approximate_gradient": false,
+            "freeze_base" : true,
+            "offset_base" : 0.05,
+            "offset_max" : 0.05,
+            "pointcloud_sigma": 0.005,
+            "scale_base_value": true,
+            "use_normal": true,
+            "close_surface_activation": true,
+            "activation_threshold": 0.05,
+            "use_tanh": true,
+            "detach_normal": true,
+            "residual" :
+            {
+                "type" : "Siren",
+                "hidden_size": 96,
+                "mapping_hidden_size": 96,
+                "dim": 4,
+                "n_layers": 3,
+                "ignore_missing_checkpoint": true,
+                "state_dict_path": {
+                    "concat": ["runs/", "{runner.name}/Train/Train_latest.ckpt:network:residual."]
+                }
+            },
+            "base":
+            {
+                "type" : "Siren",
+                "state_dict_path": {
+                    "concat": ["runs/base_", "replace:source_lowres","/Train_", "replace:base_hidden","/Train_latest.ckpt:network"]
+                },
+                "omega" : 5.0,
+                "n_layers": 2,
+                "hidden_size": "replace:base_hidden"
+            }
+        },
+        "loss" : {
+            "type":"Sdf",
+            "normal": 50,
+            "sdf" : 200,
+            "grad": 1,
+            "inter": 10
+        },
+        "data" :  {
+            "type" : "CloudSampler",
+            "path" : {
+                "concat": ["data/training_shapes/","replace:source", ".ply"]
+            },
+            "pointcloud_path" : {
+                "concat": ["data/training_shapes/","replace:source_lowres", ".ply"]
+            },
+            "num_points" : 1000000,
+            "batch_size" : 2048,
+            "pointcloud_size": 3000,
+            "keep_aspect_ratio" : true,
+            "bbox_size": 1.0,
+            "sphere_normalization":false,
+            "flip_normal" : false,
+            "padding": 0.1,
+            "do_normalize": true,
+            "augment_data": false,
+            "sample_sdf": false,
+            "sample_close_to_surface": true
+        },
+        "evaluator" : [
+            {"type":"Residual", "axis":0, "bbox_size": 1.0, "frequency": 10, "name":"levelset_X", "attributes":["sdf","residual", "base", "gt", "activation"]},
+            {"type":"Residual", "axis":1, "bbox_size": 1.0, "frequency": 10, "name":"levelset_Y", "attributes":["sdf","residual", "base", "gt", "activation"]},
+            {"type":"Residual", "axis":2, "bbox_size": 1.0, "frequency": 10, "name":"levelset_Z", "attributes":["sdf","residual", "base", "gt", "activation"]},
+            {"type":"Mesh", "bbox_size": 1.0, "name":"mesh", "frequency": 40, "resolution":512},
+            {"type":"Mesh", "bbox_size": 1.0, "name":"mesh_base", "frequency": 40, "resolution":512, "attribute": "base"},
+            {"type":"Scalar","name":"scalar", "attributes" :
+                ["sdf_loss","eikonal_loss","inter_loss","normal_loss",
+                    "base_sdf_loss", "base_normal_loss", "base_eikonal_loss",
+                    "base_grad_loss", "base_inter_loss",
+                    "base_smooth_loss"
+                    ]}
+                ]
+}

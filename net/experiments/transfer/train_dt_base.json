@@ -1,0 +1,57 @@
+{
+    "name"  : {"concat": ["base_", "replace:ply"]},
+    "data_path" : {"insert":"../datapath.json"},
+    "logger" : [
+        {
+            "type" : "File",
+            "use_step" : true,
+            "include" : ["mesh.*","code_base", "pointcloud.*", "levelset_.*", "contour_.*", "normal_.*"]
+        }
+    ],
+    "tasks" : [
+        {
+            "type":"Train",
+            "name":{
+                "concat": ["Train_", "replace:hidden_size"]},
+            "epochs": 100, "learning_rate": 1e-4,
+            "batch_size": 4,
+            "overwrite": true,
+            "update_checkpoint": 20, "resume_from": "Train_latest.ckpt"
+        }
+    ],
+    "network" :
+    {
+        "type" : "Siren",
+        "omega" : 5.0,
+        "n_layers": 2,
+        "hidden_size": "replace:hidden_size"
+    },
+    "loss" : {"type":"Sdf",
+        "sdf": 100,
+        "normal": 50,
+        "grad": 2.0,
+        "inter": 50
+    },
+    "data" :  {
+        "type" : "Pointcloud",
+        "path" : {"concat": ["data/training_shapes/", "replace:ply", ".ply"]},
+        "num_points" : 1000000,
+        "batch_size" : 2048,
+        "keep_aspect_ratio" : true,
+        "bbox_size": 1.0,
+        "augment_data": false,
+        "sphere_normalization":false,
+        "flip_normal" : false,
+        "padding": 0.1,
+        "do_normalize": true
+        },
+    "evaluator" : [
+        {"type":"Contour", "axis":0, "bbox_size": 1.0, "frequency": 10, "name":"levelset_X", "attributes":["sdf"]},
+        {"type":"Contour", "axis":1, "bbox_size": 1.0, "frequency": 10, "name":"levelset_Y", "attributes":["sdf"]},
+        {"type":"Contour", "axis":2, "bbox_size": 1.0, "frequency": 10, "name":"levelset_Z", "attributes":["sdf"]},
+        {"type":"Mesh", "bbox_size": 1.0, "name":"mesh", "frequency":20, "resolution":256},
+    	{"type":"Scalar","name":"scalar", "attributes" :
+            ["sdf_loss","eikonal_loss","inter_loss","normal_loss"]},
+        {"type":"Histogram","name":"hist","attributes" : ["residual"]}
+    ]
+}
