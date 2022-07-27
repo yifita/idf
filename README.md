@@ -56,12 +56,10 @@ python net/classes/executor.py net/experiments/transfer/exec.json
 ```
 ## bibtex
 ```
-@misc{yifan2021geometryconsistent,
-      title={Geometry-Consistent Neural Shape Representation with Implicit Displacement Fields},
-      author={Wang Yifan and Lukas Rahmann and Olga Sorkine-Hornung},
-      year={2021},
-      eprint={2106.05187},
-      archivePrefix={arXiv},
-      primaryClass={cs.CV}
+@inproceedings{yifan2021geometry,
+  title={Geometry-Consistent Neural Shape Representation with Implicit Displacement Fields},
+  author={Yifan, Wang and Rahmann, Lukas and Sorkine-hornung, Olga},
+  booktitle={International Conference on Learning Representations},
+  year={2021}
 }
 ```
