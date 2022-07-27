@@ -16,7 +16,7 @@ dependencies:
   - pytorch=1.8.1
   - torchvision
   - setuptools
-  - scikit-image
+  - scikit-image>=0.19.3
   - scikit-learn
   - scipy
   - tensorboard=2.5.0
