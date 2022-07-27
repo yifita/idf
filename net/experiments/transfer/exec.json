@@ -1,4 +1,5 @@
 [
+    {"insert": "sphere.json", "hidden_size": 32, "n_layer": 2, "omega": 5},
     {"insert": "train_dt_base.json", "hidden_size": 32, "ply": "earthmap_normalized"},
     {"insert": "train_dt_base.json", "hidden_size": 32, "ply": "BuzzsawVase_normalized"},
     {

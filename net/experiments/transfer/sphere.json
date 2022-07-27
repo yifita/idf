@@ -1,11 +1,11 @@
 {
-    "name"  : {"concat": ["base_", "replace:ply"]},
+    "name"  : {"concat": ["INIT_siren_omega", "replace:omega", "_nlayer", "replace:n_layer", "_hidden","replace:hidden_size"]},
     "data_path" : {"insert":"../datapath.json"},
     "logger" : [
         {
             "type" : "File",
             "use_step" : true,
-            "include" : ["mesh.*","code_base", "pointcloud.*", "levelset_.*", "contour_.*", "normal_.*"]
+            "include" : ["mesh.*","code_base", "pointcloud.*", "levelset_.*"]
         }
     ],
     "tasks" : [
@@ -13,44 +13,36 @@
             "type":"Train",
             "name":{
                 "concat": ["Train_", "replace:hidden_size"]},
-            "epochs": 100, "learning_rate": 1e-4,
+            "epochs": 100, "learning_rate": 5e-4,
             "batch_size": 4,
             "overwrite": true,
-            "update_checkpoint": 20, "resume_from": "Train_latest.ckpt"
+            "update_checkpoint": 50, "resume_from": "Train_latest.ckpt"
         }
     ],
     "network" :
     {
         "type" : "Siren",
-        "omega" : 5.0,
-        "n_layers": 2,
-        "hidden_size": "replace:hidden_size",
-        "state_dict_path": "runs/INIT_siren_omega5_nlayer2_hidden32/Train_32/Train_latest.ckpt:network"
+        "omega" : "replace:omega",
+        "n_layers": "replace:n_layer",
+        "hidden_size": "replace:hidden_size"
     },
-    "loss" : {"type":"Sdf",
-        "sdf": 100,
-        "normal": 50,
-        "grad": 2.0,
-        "inter": 50
+    "loss" : {
+        "type":"Sphere",
+        "radius": 0.4
     },
     "data" :  {
-        "type" : "Pointcloud",
-        "path" : {"concat": ["data/dt_shapes/training_shapes/", "replace:ply", ".ply"]},
+        "type": "Sphere",
+        "radius": 0.4,
         "num_points" : 1000000,
         "batch_size" : 2048,
         "keep_aspect_ratio" : true,
-        "bbox_size": 1.0,
-        "augment_data": false,
-        "sphere_normalization":false,
-        "flip_normal" : false,
-        "padding": 0.1,
-        "do_normalize": true
+        "bbox_size": 1.0
         },
     "evaluator" : [
         {"type":"Residual", "axis":0, "bbox_size": 1.0, "frequency": 10, "name":"levelset_X", "attributes":["sdf"]},
         {"type":"Residual", "axis":1, "bbox_size": 1.0, "frequency": 10, "name":"levelset_Y", "attributes":["sdf"]},
         {"type":"Residual", "axis":2, "bbox_size": 1.0, "frequency": 10, "name":"levelset_Z", "attributes":["sdf"]},
-        {"type":"Mesh", "bbox_size": 1.0, "name":"mesh", "frequency":20, "resolution":128},
+        {"type":"Mesh", "bbox_size": 1.0, "name":"mesh", "frequency":20, "resolution":256},
     	{"type":"Scalar","name":"scalar", "attributes" :
             ["sdf_loss","eikonal_loss","inter_loss","normal_loss"]}
     ]

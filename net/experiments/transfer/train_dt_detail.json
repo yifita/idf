@@ -32,7 +32,7 @@
                 "overwrite": true,
                 "data":  {
                     "type" : "CloudSampler",
-                    "path" : {"concat": ["data/training_shapes/","replace:source", ".ply"]},
+                    "path" : {"concat": ["data/dt_shapes/training_shapes/","replace:source", ".ply"]},
                     "num_points" : 1000000,
                     "batch_size" : 1000000,
                     "pointcloud_size": 3000,
@@ -62,7 +62,7 @@
                 "overwrite": true,
                 "data" :  {
                     "type" : "CloudSampler",
-                    "path" : {"concat": ["data/training_shapes/", "replace:target_lowres",".ply"]},
+                    "path" : {"concat": ["data/dt_shapes/training_shapes/", "replace:target_lowres",".ply"]},
                     "num_points" : 1000000,
                     "batch_size" : 1000000,
                     "pointcloud_size": 3000,
@@ -148,10 +148,10 @@
         "data" :  {
             "type" : "CloudSampler",
             "path" : {
-                "concat": ["data/training_shapes/","replace:source", ".ply"]
+                "concat": ["data/dt_shapes/training_shapes/","replace:source", ".ply"]
             },
             "pointcloud_path" : {
-                "concat": ["data/training_shapes/","replace:source_lowres", ".ply"]
+                "concat": ["data/dt_shapes/training_shapes/","replace:source_lowres", ".ply"]
             },
             "num_points" : 1000000,
             "batch_size" : 2048,
