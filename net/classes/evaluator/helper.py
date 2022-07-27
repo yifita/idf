@@ -33,7 +33,7 @@ def get_surface_high_res_mesh(sdf_func, resolution=100, box_side_length=2.0, lar
     z = z.astype(np.float32)
     if np.sign(z.min() * z.max()) >= 0:
         return trimesh.Trimesh([])
-    verts, faces, normals, values = measure.marching_cubes_lewiner(
+    verts, faces, normals, values = measure.marching_cubes(
         volume=z.reshape(grid['xyz'][1].shape[0], grid['xyz'][0].shape[0],
                          grid['xyz'][2].shape[0]).transpose([1, 0, 2]),
         level=0,
@@ -87,7 +87,7 @@ def get_surface_high_res_mesh(sdf_func, resolution=100, box_side_length=2.0, lar
 
         z = z.astype(np.float32)
 
-        verts, faces, normals, values = measure.marching_cubes_lewiner(
+        verts, faces, normals, values = measure.marching_cubes(
             volume=z.reshape(grid_aligned['xyz'][1].shape[0], grid_aligned['xyz'][0].shape[0],
                              grid_aligned['xyz'][2].shape[0]).transpose([1, 0, 2]),
             level=0,
