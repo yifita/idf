@@ -1,4 +1,4 @@
-from pytorch3d.ops.knn import knn_gather, knn_points
+from pytorch3d.ops.knn import knn_points
 import torch
 import torch.nn.functional as F
 from  network.network import Network

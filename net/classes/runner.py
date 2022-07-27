@@ -13,8 +13,6 @@ import time
 
 from helper import AllOf
 
-sys.path.append('../convolutional_occupancy_networks/')
-
 typenames = {
     "trainer" : "trainer.",
     "network" : "network.",
@@ -203,6 +201,7 @@ if __name__ == "__main__":
 
         if(currentKey is not None):
             print(f"stray key {currentKey} ignored!")
+
     print("\nParsed Arguments:")
     print(argDict.items())
     print("")

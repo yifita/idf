@@ -1,7 +1,5 @@
 from typing import Dict, List
 from .network import Network
-from .sphere import Sphere
-from .ellipsoid import Ellipsoid
 import torch
 import torch.nn.functional as F
 
@@ -60,15 +58,7 @@ class FeatureDisplacement(Network):
         except Exception:
             pass
 
-        if isinstance(self.base, (Sphere, Ellipsoid)):
-            pointcloud, _ = self.base.generate_point_cloud(pointcloud_size, data=None)
-            pointcloud = pointcloud.cuda().view(1, -1, 3)
-        else:
-            pointcloud = args['pointcloud']
-
-        # # transform the point cloud based on input transformation
-        # if args is not None and (trans_mat:=args.get('transform', None)) is not None:
-        #     pointcloud = Transform3d(matrix=trans_mat).transform_points(pointcloud)
+        pointcloud = args['pointcloud']
 
         if self.pointcloud_sigma > 0.0:
             pointcloud += self.pointcloud_sigma * torch.randn_like(pointcloud)

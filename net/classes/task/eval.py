@@ -38,7 +38,7 @@ class Eval(Task):
             stepsInEpoch = 0
             lossEpoch = 0.0
             valuesInEpoch = 0
-            
+
             for i, model_input in enumerate(dataset):
                 for k,v in model_input.items():
                     if isinstance(v,torch.Tensor):

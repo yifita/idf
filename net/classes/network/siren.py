@@ -118,7 +118,6 @@ class Siren(Network):
         if c is not None:
             input_coords = torch.cat([input_coords, c], dim=-1)
         result, detached = self._module(input_coords, detach)
-
         return {"sdf":result, "detached":detached}
 
     def evaluate(self, coords, fea=None, **kwargs):

@@ -1,7 +1,6 @@
 import sys
 from typing import Dict
 import numpy as np
-import torch
 from evaluator.evaluator import Evaluator
 from .helper import get_surface_high_res_mesh
 from task.chamfer import Compute_Chamfer

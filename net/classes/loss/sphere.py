@@ -19,8 +19,7 @@ class Sphere(Loss):
         gt_normals = model_input["normal_out"]
         coords = model_output["detached"]
         prediction = model_output["sdf"]
-        pred_sdf = prediction.reshape(-1)
-        sdf_constraint = torch.abs(pred_sdf - (coords.norm(dim=-1) - self.radius))
+        sdf_constraint = torch.abs(prediction.reshape(-1) - (coords.norm(dim=-1) - self.radius).reshape(-1))
         result = {"sdf_loss":sdf_constraint}
 
         if(self.enable_grad):

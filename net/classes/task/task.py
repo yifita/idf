@@ -29,9 +29,9 @@ class Task(ConfigObject):
 
         os.makedirs(self.folder, exist_ok=True)
         self.name = os.path.basename(self.folder)
-
+        # Set child logger
+        self.runner.py_logger = logging.getLogger(f'{self.runner.name}.{self.name}')
         # close filehandle if exist, create new filehandle in the task directory
-        self.runner.py_logger = logging.getLogger(f'runner.{self.name}')
         for h in self.runner.py_logger.handlers:
             if isinstance(h, logging.FileHandler):
                 h.close()

@@ -1,7 +1,5 @@
 from typing import Dict
 from evaluator.evaluator import Evaluator
-from skimage import measure
-from skimage.draw import ellipsoid
 import torch
 import numpy as np
 import matplotlib.pyplot as plt
